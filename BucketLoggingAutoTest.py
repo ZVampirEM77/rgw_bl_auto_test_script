@@ -539,18 +539,34 @@ class UsageTester(Tester):
         Tester.__init__(self)
         self.m_req_xml_dict = req_xml_dict
         self.ceph_path = ceph_path
+        self.test_bucket_dict = {}
     
     def prepare(self):
         exec_command("s3cmd -c " + s3_cfg + " mb s3://bucket-test-1")
         exec_command("s3cmd -c " + s3_cfg + " mb s3://bucket-test-2")
         exec_command("s3cmd -c " + s3_cfg_2 + " mb s3://bucket-test-3")
+        
+        # bl process can only be exec once a day
+        # prepare test data
+        test_bucket_list1 = self.test_enable_bl_one_sourcebucket_to_one_diff_targetbucket_test_data_prepare()
+        self.test_bucket_dict['test_enable_bl_one_sourcebucket_to_one_diff_targetbucket'] = test_bucket_list1
+        test_bucket_list2 = self.test_enable_bl_one_sourcebucket_to_one_same_targetbucket_test_data_prepare()
+        self.test_bucket_dict['test_enable_bl_one_sourcebucket_to_one_same_targetbucket'] = test_bucket_list2
+        test_bucket_list3 = self.test_enable_bl_multi_sourcebucket_to_one_target_bucket_test_data_prepare()
+        self.test_bucket_dict['test_enable_bl_multi_sourcebucket_to_one_target_bucket'] = test_bucket_list3
+        # bl process exec once
+        current_path = os.getcwd()
+        os.chdir(self.ceph_path)
+        exec_command('./radosgw-admin bl process')
+        os.chdir(current_path)
+
 
     def run(self):
-#        self.test_enable_bl_one_sourcebucket_to_one_diff_targetbucket()
-#        self.test_enable_bl_one_sourcebucket_to_one_same_targetbucket()
-#        self.test_enable_bl_disable_bl_and_enable_bl_again()
-        self.test_enable_bl_multi_sourcebucket_to_one_target_bucket()
-#        self.test_enable_bl_with_other_user_targetbucket()
+        self.test_enable_bl_one_sourcebucket_to_one_diff_targetbucket(self.test_bucket_dict['test_enable_bl_one_sourcebucket_to_one_diff_targetbucket'])
+        self.test_enable_bl_one_sourcebucket_to_one_same_targetbucket(self.test_bucket_dict['test_enable_bl_one_sourcebucket_to_one_same_targetbucket'])
+        self.test_enable_bl_disable_bl_and_enable_bl_again()
+        self.test_enable_bl_multi_sourcebucket_to_one_target_bucket(self.test_bucket_dict['test_enable_bl_multi_sourcebucket_to_one_target_bucket'])
+        self.test_enable_bl_with_other_user_targetbucket()
 
     def end(self):
         exec_command("s3cmd -c " + s3_cfg + " rb s3://bucket-test-1 --recursive")
@@ -573,52 +589,64 @@ class UsageTester(Tester):
         fhandle = exec_command_with_return("s3cmd -c " + s3_cfg + " ls s3://" + target_bucket + "/" + source_bucket + "/")
         bucket_obj = fhandle.read()
         if source_bucket in bucket_obj:
-            print '%s %s True' % (source_bucket, target_bucket)
             return True
         else:
-            print '%s %s False' % (source_bucket, target_bucket)
             return False
 
-    def test_enable_bl_one_sourcebucket_to_one_diff_targetbucket(self):
+    def test_enable_bl_one_sourcebucket_to_one_diff_targetbucket_test_data_prepare(self):
+        bucket_list = []
         test_bucket = self.get_new_bucket()
+        bucket_list.append(test_bucket)
         req_url = self.get_req_url(test_bucket)
         req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>bucket-test-1</TargetBucket>\n    <TargetPrefix>%s</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket + '/')
         res = self.put_req(req_url, req_xml)
         if res.status_code == 200:
             self.bucket_opt(test_bucket)
-            current_path = os.getcwd()
-            os.chdir(self.ceph_path)
-            exec_command('./radosgw-admin bl process')
-#            time.sleep(5)
-            os.chdir(current_path)
-            if self.verify_log_exist(test_bucket, 'bucket-test-1'):
-                print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (ok_display("OK"))
-            else:
-                print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (fail_display("FAIL"))
+            return bucket_list
         else:
-            print res.status, res.content
-            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (fail_display("FAIL"))
+            print res.status_code
+            print res.content
+            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket_test_data_prepare          %s' % (fail_display("FAIL"))
+            return []
 
-    def test_enable_bl_one_sourcebucket_to_one_same_targetbucket(self):
+    def test_enable_bl_one_sourcebucket_to_one_diff_targetbucket(self, test_bucket_list):
+        result = True
+        for test_bucket in test_bucket_list:
+            if self.verify_log_exist(test_bucket, 'bucket-test-1') == False:
+                result = False
+                break
+        if result == True:
+            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (ok_display("OK"))
+        else:
+            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (fail_display("FAIL"))
+             
+    def test_enable_bl_one_sourcebucket_to_one_same_targetbucket_test_data_prepare(self):
+        bucket_list = []
         test_bucket = self.get_new_bucket()
+        bucket_list.append(test_bucket)
         req_url = self.get_req_url(test_bucket)
         req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>%s</TargetBucket>\n    <TargetPrefix>%s</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket, test_bucket + '/')
         res = self.put_req(req_url, req_xml)
         if res.status_code == 200:
             self.bucket_opt(test_bucket)
-            current_path = os.getcwd()
-            os.chdir(self.ceph_path)
-            exec_command('./radosgw-admin bl process')
-#            time.sleep(5)
-            os.chdir(current_path)
-            if self.verify_log_exist(test_bucket, test_bucket):
-                print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket                            %s' % (ok_display("OK"))
-            else:
-                print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket                            %s' % (fail_display("FAIL"))
+            return bucket_list
         else:
-            print res.status_code, res.content
-            print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket                            %s' % (fail_display("FAIL"))
+            print res.status_code
+            print res.content
+            print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket_test_data_prepare          %s' % (fail_display("FAIL"))
+            return []
 
+    def test_enable_bl_one_sourcebucket_to_one_same_targetbucket(self, test_bucket_list):
+        result = True
+        for test_bucket in test_bucket_list:
+            if self.verify_log_exist(test_bucket, test_bucket) == False:
+                result = False
+                break
+        if result == True:
+            print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket                            %s' % (ok_display("OK"))
+        else:
+            print 'test_enable_bl_one_sourcebucket_to_one_same_targetbucket                            %s' % (fail_display("FAIL"))
+        
 
     def test_enable_bl_disable_bl_and_enable_bl_again(self):
         test_bucket = self.get_new_bucket()
@@ -643,11 +671,14 @@ class UsageTester(Tester):
             print res.content
             print 'test_enable_bl_disable_bl_and_enable_bl_again                                       %s' % (fail_display("FAIL"))
 
-
-    def test_enable_bl_multi_sourcebucket_to_one_target_bucket(self):
+    def test_enable_bl_multi_sourcebucket_to_one_target_bucket_test_data_prepare(self):
+        bucket_list = []
         test_bucket1 = self.get_new_bucket()
+        bucket_list.append(test_bucket1)
         test_bucket2 = self.get_new_bucket()
+        bucket_list.append(test_bucket2)
         test_bucket3 = self.get_new_bucket()
+        bucket_list.append(test_bucket3)
 
         req_url1 = self.get_req_url(test_bucket1)
         req_url2 = self.get_req_url(test_bucket2)
@@ -664,21 +695,26 @@ class UsageTester(Tester):
             self.bucket_opt(test_bucket1)
             self.bucket_opt(test_bucket2)
             self.bucket_opt(test_bucket3)
-            current_path = os.getcwd()
-            os.chdir(self.ceph_path)
-            exec_command('./radosgw-admin bl process')
-#            time.sleep(5)
-            os.chdir(current_path)
-            if self.verify_log_exist(test_bucket1, 'bucket-test-2') == self.verify_log_exist(test_bucket2, 'bucket-test-2') == self.verify_log_exist(test_bucket3, 'bucket-test-2') == True:
-                print 'test_enable_bl_multi_sourcebucket_to_one_target_bucket                              %s' % (ok_display("OK"))
-            else:
-                print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (fail_display("FAIL"))
+            return bucket_list
         else:
             print res1.status_code, res1.content
             print res2.status_code, res2.content
             print res3.status_code, res3.content
-            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket                            %s' % (fail_display("FAIL"))
+            print 'test_enable_bl_one_sourcebucket_to_one_diff_targetbucket_test_data_prepare          %s' % (fail_display("FAIL"))
+            return []
 
+
+    def test_enable_bl_multi_sourcebucket_to_one_target_bucket(self, test_bucket_list):
+        result = True
+        for test_bucket in test_bucket_list:
+            if self.verify_log_exist(test_bucket, 'bucket-test-2') ==  False:
+                result = False
+                break
+        if result == True:
+            print 'test_enable_bl_multi_sourcebucket_to_one_target_bucket                              %s' % (ok_display("OK"))
+        else:
+            print 'test_enable_bl_multi_sourcebucket_to_one_target_bucket                              %s' % (fail_display("FAIL"))
+        
 
     def test_enable_bl_with_other_user_targetbucket(self):
         expect_dict = {"status_code": 400,
