@@ -567,11 +567,6 @@ class UsageTester(Tester):
         self.test_bucket_dict['test_enable_bl_one_sourcebucket_to_one_same_targetbucket'] = test_bucket_list2
         test_bucket_list3 = self.test_enable_bl_multi_sourcebucket_to_one_target_bucket_test_data_prepare()
         self.test_bucket_dict['test_enable_bl_multi_sourcebucket_to_one_target_bucket'] = test_bucket_list3
-        # bl process exec once
-        current_path = os.getcwd()
-        os.chdir(self.ceph_path)
-        exec_command('./radosgw-admin bl process')
-        os.chdir(current_path)
 
 
     def run(self):
@@ -598,10 +593,11 @@ class UsageTester(Tester):
         exec_command("s3cmd -c " + s3_cfg + " ls")
         exec_command("s3cmd -c " + s3_cfg + " put " + s3_cfg + " s3://" + source_bucket)
 
-    def verify_log_exist(self, source_bucket, target_bucket):
-        fhandle = exec_command_with_return("s3cmd -c " + s3_cfg + " ls s3://" + target_bucket + "/" + source_bucket + "/")
-        bucket_obj = fhandle.read()
-        if source_bucket in bucket_obj:
+    def verify_op_result(self, source_bucket, target_bucket, target_prefix):
+        fhandle = exec_command_with_return("s3cmd -c " + s3_cfg + " accesslog s3://" + source_bucket)
+        op_result = fhandle.read()
+        expect_result = "Access logging for: s3://%s/\n   Logging Enabled: True\n     Target prefix: s3://%s/%s\n" % (source_bucket, target_bucket, target_prefix)
+        if op_result == expect_result:
             return True
         else:
             return False
@@ -614,7 +610,6 @@ class UsageTester(Tester):
         req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>bucket-test-1</TargetBucket>\n    <TargetPrefix>%s</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket + '/')
         res = self.put_req(req_url, req_xml)
         if res.status_code == 200:
-            self.bucket_opt(test_bucket)
             return bucket_list
         else:
             print res.status_code
@@ -625,7 +620,7 @@ class UsageTester(Tester):
     def test_enable_bl_one_sourcebucket_to_one_diff_targetbucket(self, test_bucket_list):
         result = True
         for test_bucket in test_bucket_list:
-            if self.verify_log_exist(test_bucket, 'bucket-test-1') == False:
+            if self.verify_op_result(test_bucket, 'bucket-test-1', test_bucket + '/') == False:
                 result = False
                 break
         if result == True:
@@ -642,7 +637,6 @@ class UsageTester(Tester):
         req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>%s</TargetBucket>\n    <TargetPrefix>%s</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket, test_bucket + '/')
         res = self.put_req(req_url, req_xml)
         if res.status_code == 200:
-            self.bucket_opt(test_bucket)
             return bucket_list
         else:
             print res.status_code
@@ -653,7 +647,7 @@ class UsageTester(Tester):
     def test_enable_bl_one_sourcebucket_to_one_same_targetbucket(self, test_bucket_list):
         result = True
         for test_bucket in test_bucket_list:
-            if self.verify_log_exist(test_bucket, test_bucket) == False:
+            if self.verify_op_result(test_bucket, test_bucket, test_bucket + '/') == False:
                 result = False
                 break
         if result == True:
@@ -707,9 +701,6 @@ class UsageTester(Tester):
         res3 = self.put_req(req_url3, req_xml3)
 
         if res1.status_code == res2.status_code == res3.status_code == 200:
-            self.bucket_opt(test_bucket1)
-            self.bucket_opt(test_bucket2)
-            self.bucket_opt(test_bucket3)
             return bucket_list
         else:
             print res1.status_code, res1.content
@@ -722,7 +713,7 @@ class UsageTester(Tester):
     def test_enable_bl_multi_sourcebucket_to_one_target_bucket(self, test_bucket_list):
         result = True
         for test_bucket in test_bucket_list:
-            if self.verify_log_exist(test_bucket, 'bucket-test-2') ==  False:
+            if self.verify_op_result(test_bucket, 'bucket-test-2', test_bucket + '/') ==  False:
                 result = False
                 break
         if result == True:
