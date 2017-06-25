@@ -853,7 +853,7 @@ if __name__ == '__main__':
             usage_tester = UsageTester(all_req_xml.req_dict, ceph_path)
             usage_tester.prepare()
             usage_tester.run()
-#            usage_tester.end()
+            usage_tester.end()
         elif opt_type == 'run_rgw_test':
             test_rgw_create_bl_deliver_by_systemuser_http()
             test_rgw_create_bl_deliver_by_commonuser_http()
