@@ -152,13 +152,13 @@ class FuncTester(Tester):
         self.test_enable_bl_with_targetbucket_targetgrants_grant_grantee_id_permission()
         self.test_enable_bl_with_targetprefix_targetgrants_grant_grantee_id_permission()
         self.test_enable_bl_with_targetbucket_targetprefix_targetgrants()
-#        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant()
-#        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_grantee()
-#        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_permission()
-#        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_grantee_permission()
+        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant()
+        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_grantee()
+        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_permission()
+        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_grantee_permission()
         #self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_email_permission()
         self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_id_permission()
-#        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_uri_permission()
+        self.test_enable_bl_with_targetbucket_targetprefix_targetgrants_grant_uri_permission()
         self.test_disable_bl()
    
     def end(self): 
