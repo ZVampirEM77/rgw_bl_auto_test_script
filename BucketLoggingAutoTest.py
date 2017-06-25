@@ -46,6 +46,9 @@ def fail_display(content):
 class ReqXml(object):
     def __init__(self, target_bucket, target_prefix, canonical_user, permission, display_name = None, email_addr = None, uri = None):
         self.req_dict = {
+            # Set WRITE and READ_ACP permission for LDG to target bucket
+	    'set_ldg_acl': '<?xml version="1.0" encoding="UTF-8"?>\n<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">\n  <Owner>\n    <ID>bl_test</ID>\n    <DisplayName>bl_test</DisplayName>\n  </Owner>\n  <AccessControlList>\n    <Grant>\n      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">\n        <ID>bl_test</ID>\n        <DisplayName>bl_test</DisplayName>\n      </Grantee>\n      <Permission>FULL_CONTROL</Permission>\n    </Grant>\n    <Grant>\n      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Group">\n        <URI>http://acs.amazonaws.com/groups/s3/LogDelivery</URI>\n      </Grantee>\n      <Permission>WRITE</Permission>\n    </Grant>\n    <Grant>\n      <Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Group">\n        <URI>http://acs.amazonaws.com/groups/s3/LogDelivery</URI>\n      </Grantee>\n      <Permission>READ_ACP</Permission>\n    </Grant>\n  </AccessControlList>\n</AccessControlPolicy>',
+ 
             # Enable Bucket Logging with LoggingEnabled
             # without others
             'without_others': '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n  </LoggingEnabled>\n</BucketLoggingStatus>',
@@ -87,6 +90,14 @@ class ReqXml(object):
             # Disable Bucket Logging
             'disable_bl': '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n</BucketLoggingStatus>'
 }
+
+def SetLDGACL(dest_bucket, req_xml):
+    req_url = 'http://127.0.0.1:8000/' + dest_bucket + '?acl'
+    res = requests.put(req_url, headers = req_headers, data = req_xml, auth = s3_user_authv2)
+    if res.status_code != 200:
+	print res.status_code
+	print res.content
+        print "SetLDGACL Failed!"
 
 
 class Tester(object):
@@ -543,7 +554,9 @@ class UsageTester(Tester):
     
     def prepare(self):
         exec_command("s3cmd -c " + s3_cfg + " mb s3://bucket-test-1")
+        SetLDGACL('bucket-test-1', self.m_req_xml_dict['set_ldg_acl'])
         exec_command("s3cmd -c " + s3_cfg + " mb s3://bucket-test-2")
+        SetLDGACL('bucket-test-2', self.m_req_xml_dict['set_ldg_acl'])
         exec_command("s3cmd -c " + s3_cfg_2 + " mb s3://bucket-test-3")
         
         # bl process can only be exec once a day
@@ -623,6 +636,7 @@ class UsageTester(Tester):
     def test_enable_bl_one_sourcebucket_to_one_same_targetbucket_test_data_prepare(self):
         bucket_list = []
         test_bucket = self.get_new_bucket()
+        SetLDGACL(test_bucket, self.m_req_xml_dict['set_ldg_acl'])
         bucket_list.append(test_bucket)
         req_url = self.get_req_url(test_bucket)
         req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>%s</TargetBucket>\n    <TargetPrefix>%s</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket, test_bucket + '/')
@@ -650,6 +664,7 @@ class UsageTester(Tester):
 
     def test_enable_bl_disable_bl_and_enable_bl_again(self):
         test_bucket = self.get_new_bucket()
+        SetLDGACL(test_bucket, self.m_req_xml_dict['set_ldg_acl'])
         req_url = self.get_req_url(test_bucket)
         enable_req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n  <LoggingEnabled>\n    <TargetBucket>%s</TargetBucket>\n    <TargetPrefix>log/</TargetPrefix>\n  </LoggingEnabled>\n</BucketLoggingStatus>' % (test_bucket)
         disable_req_xml = '<?xml version="1.0" encoding="UTF-8"?>\n<BucketLoggingStatus xmlns="http://doc.s3.amazonaws.com/2006-03-01">\n</BucketLoggingStatus>'
@@ -827,6 +842,12 @@ if __name__ == '__main__':
                 print 'When you get canonical id, source bucket name is necessary!'
             else:
                 GetCanonicalIDandDisplayName(source_bucket)
+        # Set LDG WRITE and READ_ACP permission to target bucket
+        elif opt_type == 'set_acl':
+	    if target_bucket == '':
+	        print 'When you set LDG ACL, target bucket name is necessary!'
+	    else:
+		SetLDGACL(target_bucket, all_req_xml.req_dict['set_ldg_acl'])
         # Function Test
         elif opt_type == 'run_func_test':
             if target_bucket == '':
