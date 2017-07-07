@@ -27,6 +27,8 @@ rgw enable ops log = true
 
 > ./radosgw-admin user create --uid=system\_user --access-key=system\_user --secret-key=system\_user --display-name="system\_user" --system
 
+> ./radosgw-admin -c ceph.conf zone modify --access-key=system_user --secret=system_user --system --rgw-zonegroup=default --rgw-zone=default
+
 + 测试所需用户
 
 > ./radosgw-admin user create --uid=bl\_test --access-key=bl\_test --secret-key=bl\_test --display-name="bl\_test"
@@ -38,6 +40,14 @@ rgw enable ops log = true
 > cd rgw\_bl\_auto\_test\_script/
 
 > s3cmd -c bl\_test.s3cfg mb s3://tbucket
+
+为LDG(即bl_deliver)赋予target bucket的WRITE和READ_ACP权限:
+
+> s3cmd -c bl\_test.s3cfg setacl s3://tbucket --acl-grant=write:bl_deliver
+
+> s3cmd -c bl\_test.s3cfg setacl s3://tbucket --acl-grant=read_acp:bl_deliver
+
+* 其中LDG的uid根据具体创建的内容进行对应。
 
 
 ## 测试操作
